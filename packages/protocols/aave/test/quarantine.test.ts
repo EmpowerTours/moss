@@ -25,7 +25,7 @@ describe("expectQuarantineActive", () => {
     });
   }
 
-  for (const mode of [undefined, "", "warn"]) {
+  for (const mode of [undefined, ""]) {
     it(`skips with a note once expired (MOSS_QUARANTINE_EXPIRY=${mode ?? "unset"})`, () => {
       vi.stubEnv("MOSS_QUARANTINE_EXPIRY", mode);
       const { notes, context } = recorder();
@@ -42,12 +42,25 @@ describe("expectQuarantineActive", () => {
   });
 
   for (const mode of [undefined, "enforce"]) {
-    it(`rejects an unparseable eligibleAfter (MOSS_QUARANTINE_EXPIRY=${mode ?? "unset"})`, () => {
+    for (const eligibleAfter of ["soon", "2026-10-16", "2026-10-16T00:00:00", "Oct 16 2026"]) {
+      it(`rejects eligibleAfter ${JSON.stringify(eligibleAfter)} (MOSS_QUARANTINE_EXPIRY=${mode ?? "unset"})`, () => {
+        vi.stubEnv("MOSS_QUARANTINE_EXPIRY", mode);
+        const { context } = recorder();
+        expect(() =>
+          expectQuarantineActive(context, { sourceId: "BAD", eligibleAfter }, 0),
+        ).toThrow("BAD: eligibleAfter is not a UTC ISO-8601 instant");
+      });
+    }
+  }
+
+  for (const mode of ["ENFORCE", "true", "1", "warn"]) {
+    it(`rejects MOSS_QUARANTINE_EXPIRY=${mode} before checking the date`, () => {
       vi.stubEnv("MOSS_QUARANTINE_EXPIRY", mode);
-      const { context } = recorder();
-      expect(() =>
-        expectQuarantineActive(context, { sourceId: "BAD", eligibleAfter: "soon" }, 0),
-      ).toThrow("BAD: eligibleAfter is not a date");
+      const { notes, context } = recorder();
+      expect(() => expectQuarantineActive(context, QUARANTINE, EXPIRY - 1)).toThrow(
+        `MOSS_QUARANTINE_EXPIRY must be unset or "enforce", got "${mode}"`,
+      );
+      expect(notes).toEqual([]);
     });
   }
 

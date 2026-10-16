@@ -6,10 +6,12 @@
  * `quarantine-expiry` workflow sets `MOSS_QUARANTINE_EXPIRY=enforce`, where an
  * expired quarantine fails so maintainers vendor it.
  *
- * Call it outside the `MOSS_SKIP_E2E` live block: the scheduled run is offline.
+ * Call it in its own test, outside the `MOSS_SKIP_E2E` live block: the
+ * scheduled run is offline, and a skip ends the whole test it is called from.
  */
 export interface Quarantine {
   readonly sourceId: string;
+  /** UTC ISO-8601 instant, exactly as `Date.prototype.toISOString` writes it. */
   readonly eligibleAfter: string;
 }
 
@@ -18,10 +20,16 @@ export function expectQuarantineActive(
   { sourceId, eligibleAfter }: Quarantine,
   now: number = Date.now(),
 ): void {
+  const mode = process.env.MOSS_QUARANTINE_EXPIRY;
+  if (mode !== undefined && mode !== "" && mode !== "enforce") {
+    throw new Error(`MOSS_QUARANTINE_EXPIRY must be unset or "enforce", got "${mode}"`);
+  }
   const expiry = Date.parse(eligibleAfter);
-  if (Number.isNaN(expiry)) throw new Error(`${sourceId}: eligibleAfter is not a date`);
+  if (Number.isNaN(expiry) || new Date(expiry).toISOString() !== eligibleAfter) {
+    throw new Error(`${sourceId}: eligibleAfter is not a UTC ISO-8601 instant`);
+  }
   if (now < expiry) return;
   const note = `${sourceId} cleared its quarantine at ${eligibleAfter}; vendor it and remove this quarantine`;
-  if (process.env.MOSS_QUARANTINE_EXPIRY === "enforce") throw new Error(note);
+  if (mode === "enforce") throw new Error(note);
   context.skip(note);
 }
