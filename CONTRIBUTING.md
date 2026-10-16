@@ -29,11 +29,11 @@ pull request, reproduce it locally and compare it with the current `main`
 baseline before changing unrelated protocol code.
 
 A test-only quarantine with an `eligibleAfter` date must check it through
-`expectQuarantineActive` (`packages/protocols/aave/test/quarantine.ts`), outside
-the live block. Once the date passes, pull request CI skips the check with a
-note; the scheduled `Quarantine expiry` workflow runs with
-`MOSS_QUARANTINE_EXPIRY=enforce` and fails until the quarantine is vendored and
-removed.
+`expectQuarantineActive` (`packages/protocols/aave/test/quarantine.ts`) in its
+own test, outside the live block. Once the date passes, pull request CI skips
+the check with a note; the scheduled `Quarantine expiry` workflow runs with
+`MOSS_QUARANTINE_EXPIRY=enforce`, fails and opens an issue until the quarantine
+is vendored and removed.
 
 Toolchain notes you shouldn't fight:
 
