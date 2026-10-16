@@ -1,0 +1,65 @@
+name: Quarantine expiry
+
+# Test-only quarantines expire on the wall clock (#195). Pull request CI skips
+# an expired one with a note so it cannot turn unrelated pull requests red; this
+# scheduled run fails instead, so the expiry still reaches maintainers. Offline
+# by design: the expiry checks need no chain access, secrets or write token.
+on:
+  schedule:
+    - cron: "41 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  expiry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Same policy as CI, narrowed to what an offline run needs.
+      - name: Restrict runner egress
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: block
+          disable-telemetry: true
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            codeload.github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            raw.githubusercontent.com:443
+            pipelines.actions.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+            *.actions.githubusercontent.com:443
+            *.blob.core.windows.net:443
+            nodejs.org:443
+            registry.npmjs.org:443
+
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Build precedes the suites: workspace packages resolve each other's
+      # types and entry points through their built dist output.
+      - name: Build
+        run: pnpm build
+
+      - name: Offline tests with quarantine expiry enforced
+        env:
+          MOSS_SKIP_E2E: "1"
+          MOSS_QUARANTINE_EXPIRY: enforce
+        run: pnpm -r --no-bail test
