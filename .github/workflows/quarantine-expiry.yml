@@ -10,9 +10,11 @@ on:
     - cron: "41 5 * * *"
   workflow_dispatch:
 
+# Queued rather than cancelled: a manual dispatch must not cancel a scheduled
+# run before it can report.
 concurrency:
   group: ${{ github.workflow }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -86,7 +88,11 @@ jobs:
           egress-policy: block
           disable-telemetry: true
           allowed-endpoints: >
+            github.com:443
             api.github.com:443
+            pipelines.actions.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+            *.actions.githubusercontent.com:443
 
       # One open issue per expiry streak: later failures comment on it.
       - name: Open or update the expiry issue
@@ -97,7 +103,8 @@ jobs:
         run: |
           title="Scheduled quarantine expiry run failed"
           body="The scheduled \`Quarantine expiry\` run failed: $RUN_URL. A \`cleared its quarantine\` error names the quarantine to vendor and remove (#195); any other failure means the offline suites are red on main."
-          number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+          # Listed rather than searched: the search index can lag a fresh issue.
+          number=$(gh issue list --state open --limit 500 --json number,title \
             --jq "map(select(.title == \"$title\")) | .[0].number // empty")
           if [ -n "$number" ]; then
             gh issue comment "$number" --body "$body"
