@@ -26,7 +26,9 @@ export function expectQuarantineActive(
   }
   const expiry = Date.parse(eligibleAfter);
   if (Number.isNaN(expiry) || new Date(expiry).toISOString() !== eligibleAfter) {
-    throw new Error(`${sourceId}: eligibleAfter is not a UTC ISO-8601 instant`);
+    throw new Error(
+      `${sourceId}: eligibleAfter must be written as toISOString() writes it, YYYY-MM-DDTHH:mm:ss.sssZ`,
+    );
   }
   if (now < expiry) return;
   const note = `${sourceId} cleared its quarantine at ${eligibleAfter}; vendor it and remove this quarantine`;

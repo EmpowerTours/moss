@@ -42,13 +42,22 @@ describe("expectQuarantineActive", () => {
   });
 
   for (const mode of [undefined, "enforce"]) {
-    for (const eligibleAfter of ["soon", "2026-10-16", "2026-10-16T00:00:00", "Oct 16 2026"]) {
+    for (const eligibleAfter of [
+      "soon",
+      "2026-10-16",
+      "2026-10-16T00:00:00",
+      "Oct 16 2026",
+      "2026-10-16T00:00:00Z",
+      "2026-02-30T00:00:00.000Z",
+    ]) {
       it(`rejects eligibleAfter ${JSON.stringify(eligibleAfter)} (MOSS_QUARANTINE_EXPIRY=${mode ?? "unset"})`, () => {
         vi.stubEnv("MOSS_QUARANTINE_EXPIRY", mode);
         const { context } = recorder();
         expect(() =>
           expectQuarantineActive(context, { sourceId: "BAD", eligibleAfter }, 0),
-        ).toThrow("BAD: eligibleAfter is not a UTC ISO-8601 instant");
+        ).toThrow(
+          "BAD: eligibleAfter must be written as toISOString() writes it, YYYY-MM-DDTHH:mm:ss.sssZ",
+        );
       });
     }
   }
